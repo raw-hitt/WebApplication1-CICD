@@ -9,6 +9,9 @@ trigger:
 pool:
   name: 'vm-agent-pool'
 
+trigger:
+- master
+
 variables:
   solution: '**/*.sln'
   buildPlatform: 'Any CPU'
@@ -38,3 +41,5 @@ steps:
     SourceFolder: '$(Build.ArtifactStagingDirectory)'
     Contents: '**'
     TargetFolder: '$(deployPath)'
+
+  
