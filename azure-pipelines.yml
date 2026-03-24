@@ -10,30 +10,50 @@ pool:
   name: 'vm-agent-pool'
 
 variables:
-  solution: '**/*.sln'
-  buildPlatform: 'Any CPU'
   buildConfiguration: 'Release'
   deployPath: 'C:\inetpub\MyMvcApp-Test'
 
 steps:
+
+# ✅ Install .NET SDK
 - task: UseDotNet@2
   inputs:
     packageType: 'sdk'
     version: '9.0.x'
 
+# ✅ Verify .NET
+- script: dotnet --version
+  displayName: 'Check .NET Version'
+
+# ✅ Clean old build (IMPORTANT)
+- script: dotnet clean
+  displayName: 'Clean Solution'
+
+# ✅ Restore
 - script: dotnet restore
   displayName: 'Restore'
 
+# ✅ Build
 - script: dotnet build --configuration $(buildConfiguration)
   displayName: 'Build'
 
+# ✅ Publish
 - script: dotnet publish -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)
   displayName: 'Publish'
 
-# 🔴 STOP IIS (IMPORTANT)
+# 🔴 STOP IIS (releases DLL lock)
 - script: |
+    echo Stopping IIS...
     iisreset /stop
   displayName: 'Stop IIS'
+
+# 🧹 Delete old files (VERY IMPORTANT - ensures clean deployment)
+- powershell: |
+    Write-Host "Cleaning deployment folder..."
+    if (Test-Path "$(deployPath)") {
+        Remove-Item "$(deployPath)\*" -Recurse -Force -ErrorAction SilentlyContinue
+    }
+  displayName: 'Clean Deployment Folder'
 
 # 📁 Copy new files
 - task: CopyFiles@2
@@ -45,6 +65,6 @@ steps:
 
 # 🟢 START IIS
 - script: |
+    echo Starting IIS...
     iisreset /start
   displayName: 'Start IIS'
-  
