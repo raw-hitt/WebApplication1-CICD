@@ -21,9 +21,6 @@ steps:
     packageType: 'sdk'
     version: '9.0.x'
 
-- script: dotnet --version
-  displayName: 'Check .NET'
-
 - script: dotnet restore
   displayName: 'Restore'
 
@@ -33,10 +30,21 @@ steps:
 - script: dotnet publish -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)
   displayName: 'Publish'
 
+# 🔴 STOP IIS (IMPORTANT)
+- script: |
+    iisreset /stop
+  displayName: 'Stop IIS'
+
+# 📁 Copy new files
 - task: CopyFiles@2
   inputs:
     SourceFolder: '$(Build.ArtifactStagingDirectory)'
     Contents: '**'
     TargetFolder: '$(deployPath)'
+    OverWrite: true
 
+# 🟢 START IIS
+- script: |
+    iisreset /start
+  displayName: 'Start IIS'
   
