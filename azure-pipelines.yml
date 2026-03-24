@@ -9,9 +9,6 @@ trigger:
 pool:
   name: 'vm-agent-pool'
 
-trigger:
-- master
-
 variables:
   solution: '**/*.sln'
   buildPlatform: 'Any CPU'
