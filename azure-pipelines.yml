@@ -50,6 +50,14 @@ stages:
     - script: dotnet publish -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)
       displayName: 'Publish'
 
+    # 🌍 Set DEV Environment Variables
+    - powershell: |
+        Write-Host "Setting DEV environment variables..."
+        [System.Environment]::SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Development", "Machine")
+        [System.Environment]::SetEnvironmentVariable("API_URL", "$(API_URL)", "Machine")
+        [System.Environment]::SetEnvironmentVariable("DB_CONN", "$(DB_CONN)", "Machine")
+      displayName: 'Set DEV Environment Variables'
+
     # 🔴 STOP IIS (releases DLL lock)
     - script: |
         echo Stopping IIS...
@@ -78,6 +86,7 @@ stages:
         iisreset /start
       displayName: 'Start IIS'
 
+
 # 🟡 QA STAGE
 - stage: QA
   displayName: 'Deploy to QA'
@@ -88,9 +97,21 @@ stages:
   - job: DeployQA
     steps:
 
-    # 🔁 Reuse same deployment logic (optional but recommended)
-    - script: echo "QA Deployment using variables from qa-config"
-      displayName: 'QA Stage Trigger'
+    # 🌍 Set QA Environment Variables
+    - powershell: |
+        Write-Host "Setting QA environment variables..."
+        [System.Environment]::SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "QA", "Machine")
+        [System.Environment]::SetEnvironmentVariable("API_URL", "$(API_URL)", "Machine")
+        [System.Environment]::SetEnvironmentVariable("DB_CONN", "$(DB_CONN)", "Machine")
+      displayName: 'Set QA Environment Variables'
+
+    # 🔴 Restart IIS (VERY IMPORTANT)
+    - script: |
+        echo Restarting IIS...
+        iisreset /stop
+        iisreset /start
+      displayName: 'Restart IIS'
+
 
 # 🔴 PROD STAGE
 - stage: Prod
@@ -102,6 +123,17 @@ stages:
   - job: DeployProd
     steps:
 
-    # 🔁 Reuse same deployment logic (optional but recommended)
-    - script: echo "PROD Deployment using variables from prod-config"
-      displayName: 'PROD Stage Trigger'
+    # 🌍 Set PROD Environment Variables
+    - powershell: |
+        Write-Host "Setting PROD environment variables..."
+        [System.Environment]::SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Production", "Machine")
+        [System.Environment]::SetEnvironmentVariable("API_URL", "$(API_URL)", "Machine")
+        [System.Environment]::SetEnvironmentVariable("DB_CONN", "$(DB_CONN)", "Machine")
+      displayName: 'Set PROD Environment Variables'
+
+    # 🔴 Restart IIS
+    - script: |
+        echo Restarting IIS...
+        iisreset /stop
+        iisreset /start
+      displayName: 'Restart IIS'
