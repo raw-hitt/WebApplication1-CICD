@@ -53,6 +53,13 @@ stages:
     - script: dotnet publish -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)
       displayName: 'Publish'
 
+    # 📦 Publish Artifact (IMPORTANT)
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
+
     # 🌍 Set DEV Environment Variables
     - powershell: |
         Write-Host "Setting DEV environment variables..."
@@ -107,6 +114,14 @@ stages:
         deploy:
           steps:
 
+          # 📥 Download Artifact
+          - task: DownloadBuildArtifacts@0
+            inputs:
+              buildType: 'current'
+              downloadType: 'single'
+              artifactName: 'drop'
+              downloadPath: '$(Pipeline.Workspace)'
+
           # 🌍 Set QA Environment Variables
           - powershell: |
               Write-Host "Setting QA environment variables..."
@@ -132,7 +147,7 @@ stages:
           # 📁 Copy files to QA
           - task: CopyFiles@2
             inputs:
-              SourceFolder: '$(Build.ArtifactStagingDirectory)'
+              SourceFolder: '$(Pipeline.Workspace)/drop'
               Contents: '**'
               TargetFolder: '$(deployPath)'
               OverWrite: true
@@ -161,6 +176,14 @@ stages:
         deploy:
           steps:
 
+          # 📥 Download Artifact
+          - task: DownloadBuildArtifacts@0
+            inputs:
+              buildType: 'current'
+              downloadType: 'single'
+              artifactName: 'drop'
+              downloadPath: '$(Pipeline.Workspace)'
+
           # 🌍 Set PROD Environment Variables
           - powershell: |
               Write-Host "Setting PROD environment variables..."
@@ -186,7 +209,7 @@ stages:
           # 📁 Copy files to PROD
           - task: CopyFiles@2
             inputs:
-              SourceFolder: '$(Build.ArtifactStagingDirectory)'
+              SourceFolder: '$(Pipeline.Workspace)/drop'
               Contents: '**'
               TargetFolder: '$(deployPath)'
               OverWrite: true
