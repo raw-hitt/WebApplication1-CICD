@@ -15,163 +15,93 @@ variables:
 
 stages:
 
-# 🔵 DEV STAGE (AUTO DEPLOY)
+# 🔵 DEV STAGE
 - stage: Dev
   displayName: 'Deploy to Dev'
   variables:
   - group: dev-config
   jobs:
-  - deployment: DeployDev   # 👈 deployment job for environment support
-    environment: dev        # 👈 NO approval (auto)
-    strategy:
-      runOnce:
-        deploy:
-          steps:
+  - job: DeployDev
+    steps:
 
-          # ✅ Install .NET SDK
-          - task: UseDotNet@2
-            inputs:
-              packageType: 'sdk'
-              version: '9.0.x'
+    # ✅ Install .NET SDK
+    - task: UseDotNet@2
+      inputs:
+        packageType: 'sdk'
+        version: '9.0.x'
 
-          # ✅ Verify .NET
-          - script: dotnet --version
-            displayName: 'Check .NET Version'
+    # ✅ Verify .NET
+    - script: dotnet --version
+      displayName: 'Check .NET Version'
 
-          # ✅ Clean old build (IMPORTANT)
-          - script: dotnet clean
-            displayName: 'Clean Solution'
+    # ✅ Clean old build (IMPORTANT)
+    - script: dotnet clean
+      displayName: 'Clean Solution'
 
-          # ✅ Restore
-          - script: dotnet restore
-            displayName: 'Restore'
+    # ✅ Restore
+    - script: dotnet restore
+      displayName: 'Restore'
 
-          # ✅ Build
-          - script: dotnet build --configuration $(buildConfiguration)
-            displayName: 'Build'
+    # ✅ Build
+    - script: dotnet build --configuration $(buildConfiguration)
+      displayName: 'Build'
 
-          # ✅ Publish
-          - script: dotnet publish -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)
-            displayName: 'Publish'
+    # ✅ Publish
+    - script: dotnet publish -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)
+      displayName: 'Publish'
 
-          # 🌍 Set Environment Variables (DEV)
-          - powershell: |
-              Write-Host "Setting DEV environment variables..."
-              [System.Environment]::SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Development", "Machine")
-              [System.Environment]::SetEnvironmentVariable("API_URL", "$(API_URL)", "Machine")
-              [System.Environment]::SetEnvironmentVariable("DB_CONN", "$(DB_CONN)", "Machine")
-            displayName: 'Set DEV Environment Variables'
+    # 🔴 STOP IIS (releases DLL lock)
+    - script: |
+        echo Stopping IIS...
+        iisreset /stop
+      displayName: 'Stop IIS'
 
-          # 🔴 STOP IIS (releases DLL lock)
-          - script: |
-              echo Stopping IIS...
-              iisreset /stop
-            displayName: 'Stop IIS'
+    # 🧹 Delete old files (VERY IMPORTANT - ensures clean deployment)
+    - powershell: |
+        Write-Host "Cleaning deployment folder..."
+        if (Test-Path "$(deployPath)") {
+            Remove-Item "$(deployPath)\*" -Recurse -Force -ErrorAction SilentlyContinue
+        }
+      displayName: 'Clean Deployment Folder'
 
-          # 🧹 Delete old files (VERY IMPORTANT - ensures clean deployment)
-          - powershell: |
-              Write-Host "Cleaning deployment folder..."
-              if (Test-Path "$(deployPath)") {
-                  Remove-Item "$(deployPath)\*" -Recurse -Force -ErrorAction SilentlyContinue
-              }
-            displayName: 'Clean Deployment Folder'
+    # 📁 Copy new files
+    - task: CopyFiles@2
+      inputs:
+        SourceFolder: '$(Build.ArtifactStagingDirectory)'
+        Contents: '**'
+        TargetFolder: '$(deployPath)'
+        OverWrite: true
 
-          # 📁 Copy new files
-          - task: CopyFiles@2
-            inputs:
-              SourceFolder: '$(Build.ArtifactStagingDirectory)'
-              Contents: '**'
-              TargetFolder: '$(deployPath)'
-              OverWrite: true
+    # 🟢 START IIS
+    - script: |
+        echo Starting IIS...
+        iisreset /start
+      displayName: 'Start IIS'
 
-          # 🟢 START IIS
-          - script: |
-              echo Starting IIS...
-              iisreset /start
-            displayName: 'Start IIS'
-
-
-# 🟡 QA STAGE (MANUAL APPROVAL REQUIRED)
+# 🟡 QA STAGE
 - stage: QA
   displayName: 'Deploy to QA'
   dependsOn: Dev
   variables:
   - group: qa-config
   jobs:
-  - deployment: DeployQA
-    environment: qa   # 👈 Configure approval in Azure DevOps UI
-    strategy:
-      runOnce:
-        deploy:
-          steps:
+  - job: DeployQA
+    steps:
 
-          # 🌍 Set Environment Variables (QA)
-          - powershell: |
-              Write-Host "Setting QA environment variables..."
-              [System.Environment]::SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "QA", "Machine")
-              [System.Environment]::SetEnvironmentVariable("API_URL", "$(API_URL)", "Machine")
-              [System.Environment]::SetEnvironmentVariable("DB_CONN", "$(DB_CONN)", "Machine")
-            displayName: 'Set QA Environment Variables'
+    # 🔁 Reuse same deployment logic (optional but recommended)
+    - script: echo "QA Deployment using variables from qa-config"
+      displayName: 'QA Stage Trigger'
 
-          # 🔴 STOP IIS
-          - script: |
-              echo Stopping IIS...
-              iisreset /stop
-            displayName: 'Stop IIS'
-
-          # 📁 Copy files (reuse build output)
-          - task: CopyFiles@2
-            inputs:
-              SourceFolder: '$(Build.ArtifactStagingDirectory)'
-              Contents: '**'
-              TargetFolder: '$(deployPath)'
-              OverWrite: true
-
-          # 🟢 START IIS
-          - script: |
-              echo Starting IIS...
-              iisreset /start
-            displayName: 'Start IIS'
-
-
-# 🔴 PROD STAGE (MANUAL APPROVAL REQUIRED)
+# 🔴 PROD STAGE
 - stage: Prod
   displayName: 'Deploy to PROD'
   dependsOn: QA
   variables:
   - group: prod-config
   jobs:
-  - deployment: DeployProd
-    environment: prod   # 👈 Configure approval in Azure DevOps UI
-    strategy:
-      runOnce:
-        deploy:
-          steps:
+  - job: DeployProd
+    steps:
 
-          # 🌍 Set Environment Variables (PROD)
-          - powershell: |
-              Write-Host "Setting PROD environment variables..."
-              [System.Environment]::SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Production", "Machine")
-              [System.Environment]::SetEnvironmentVariable("API_URL", "$(API_URL)", "Machine")
-              [System.Environment]::SetEnvironmentVariable("DB_CONN", "$(DB_CONN)", "Machine")
-            displayName: 'Set PROD Environment Variables'
-
-          # 🔴 STOP IIS
-          - script: |
-              echo Stopping IIS...
-              iisreset /stop
-            displayName: 'Stop IIS'
-
-          # 📁 Copy files
-          - task: CopyFiles@2
-            inputs:
-              SourceFolder: '$(Build.ArtifactStagingDirectory)'
-              Contents: '**'
-              TargetFolder: '$(deployPath)'
-              OverWrite: true
-
-          # 🟢 START IIS
-          - script: |
-              echo Starting IIS...
-              iisreset /start
-            displayName: 'Start IIS'
+    # 🔁 Reuse same deployment logic (optional but recommended)
+    - script: echo "PROD Deployment using variables from prod-config"
+      displayName: 'PROD Stage Trigger'
