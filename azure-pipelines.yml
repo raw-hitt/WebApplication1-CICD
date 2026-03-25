@@ -13,58 +13,97 @@ variables:
   buildConfiguration: 'Release'
   deployPath: 'C:\inetpub\MyMvcApp-Test'
 
-steps:
+stages:
 
-# ✅ Install .NET SDK
-- task: UseDotNet@2
-  inputs:
-    packageType: 'sdk'
-    version: '9.0.x'
+# 🔵 DEV STAGE
+- stage: Dev
+  displayName: 'Deploy to Dev'
+  variables:
+  - group: dev-config
+  jobs:
+  - job: DeployDev
+    steps:
 
-# ✅ Verify .NET
-- script: dotnet --version
-  displayName: 'Check .NET Version'
+    # ✅ Install .NET SDK
+    - task: UseDotNet@2
+      inputs:
+        packageType: 'sdk'
+        version: '9.0.x'
 
-# ✅ Clean old build (IMPORTANT)
-- script: dotnet clean
-  displayName: 'Clean Solution'
+    # ✅ Verify .NET
+    - script: dotnet --version
+      displayName: 'Check .NET Version'
 
-# ✅ Restore
-- script: dotnet restore
-  displayName: 'Restore'
+    # ✅ Clean old build (IMPORTANT)
+    - script: dotnet clean
+      displayName: 'Clean Solution'
 
-# ✅ Build
-- script: dotnet build --configuration $(buildConfiguration)
-  displayName: 'Build'
+    # ✅ Restore
+    - script: dotnet restore
+      displayName: 'Restore'
 
-# ✅ Publish
-- script: dotnet publish -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)
-  displayName: 'Publish'
+    # ✅ Build
+    - script: dotnet build --configuration $(buildConfiguration)
+      displayName: 'Build'
 
-# 🔴 STOP IIS (releases DLL lock)
-- script: |
-    echo Stopping IIS...
-    iisreset /stop
-  displayName: 'Stop IIS'
+    # ✅ Publish
+    - script: dotnet publish -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)
+      displayName: 'Publish'
 
-# 🧹 Delete old files (VERY IMPORTANT - ensures clean deployment)
-- powershell: |
-    Write-Host "Cleaning deployment folder..."
-    if (Test-Path "$(deployPath)") {
-        Remove-Item "$(deployPath)\*" -Recurse -Force -ErrorAction SilentlyContinue
-    }
-  displayName: 'Clean Deployment Folder'
+    # 🔴 STOP IIS (releases DLL lock)
+    - script: |
+        echo Stopping IIS...
+        iisreset /stop
+      displayName: 'Stop IIS'
 
-# 📁 Copy new files
-- task: CopyFiles@2
-  inputs:
-    SourceFolder: '$(Build.ArtifactStagingDirectory)'
-    Contents: '**'
-    TargetFolder: '$(deployPath)'
-    OverWrite: true
+    # 🧹 Delete old files (VERY IMPORTANT - ensures clean deployment)
+    - powershell: |
+        Write-Host "Cleaning deployment folder..."
+        if (Test-Path "$(deployPath)") {
+            Remove-Item "$(deployPath)\*" -Recurse -Force -ErrorAction SilentlyContinue
+        }
+      displayName: 'Clean Deployment Folder'
 
-# 🟢 START IIS
-- script: |
-    echo Starting IIS...
-    iisreset /start
-  displayName: 'Start IIS'
+    # 📁 Copy new files
+    - task: CopyFiles@2
+      inputs:
+        SourceFolder: '$(Build.ArtifactStagingDirectory)'
+        Contents: '**'
+        TargetFolder: '$(deployPath)'
+        OverWrite: true
+
+    # 🟢 START IIS
+    - script: |
+        echo Starting IIS...
+        iisreset /start
+      displayName: 'Start IIS'
+
+
+# 🟡 QA STAGE
+- stage: QA
+  displayName: 'Deploy to QA'
+  dependsOn: Dev
+  variables:
+  - group: qa-config
+  jobs:
+  - job: DeployQA
+    steps:
+
+    # 🔁 Reuse same deployment logic (optional but recommended)
+    - script: echo "QA Deployment using variables from qa-config"
+      displayName: 'QA Stage Trigger'
+
+
+# 🔴 PROD STAGE
+- stage: Prod
+  displayName: 'Deploy to PROD'
+  dependsOn: QA
+  variables:
+  - group: prod-config
+  jobs:
+  - job: DeployProd
+    steps:
+
+    # 🔁 Reuse same deployment logic (optional but recommended)
+    - script: echo "PROD Deployment using variables from prod-config"
+      displayName: 'PROD Stage Trigger'
