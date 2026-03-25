@@ -50,6 +50,14 @@ stages:
     - script: dotnet publish -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)
       displayName: 'Publish'
 
+    # 🌍 Set Environment Variables (IMPORTANT - THIS WAS MISSING)
+    - powershell: |
+        Write-Host "Setting environment variables..."
+        [System.Environment]::SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Development", "Machine")
+        [System.Environment]::SetEnvironmentVariable("API_URL", "$(API_URL)", "Machine")
+        [System.Environment]::SetEnvironmentVariable("DB_CONN", "$(DB_CONN)", "Machine")
+      displayName: 'Set Environment Variables'
+
     # 🔴 STOP IIS (releases DLL lock)
     - script: |
         echo Stopping IIS...
