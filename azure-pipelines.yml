@@ -219,3 +219,68 @@ stages:
               echo Starting IIS...
               iisreset /start
             displayName: 'Start IIS'
+
+
+# 🟣 PRODMAX STAGE
+- stage: ProdMax
+  displayName: 'Deploy to PRODMAX'
+  dependsOn: Prod
+  pool:
+    name: 'prodmax-agent-pool'   # 👈 NEW VM AGENT POOL
+
+  variables:
+  - group: prodmax-config
+  - name: deployPath
+    value: 'C:\inetpub\MyMvcApp-ProdMax'   # 👈 PRODMAX folder (NEW VM)
+
+  jobs:
+  - deployment: DeployProdMax   # ✅ SAME PATTERN AS QA/PROD
+    environment: prodmax        # ✅ REQUIRED FOR APPROVAL
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+
+          # 📥 Download Artifact
+          - task: DownloadBuildArtifacts@0
+            inputs:
+              buildType: 'current'
+              downloadType: 'single'
+              artifactName: 'drop'
+              downloadPath: '$(Pipeline.Workspace)'
+
+          # 🌍 Set PRODMAX Environment Variables
+          - powershell: |
+              Write-Host "Setting PRODMAX environment variables..."
+              [System.Environment]::SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Production", "Machine")
+              [System.Environment]::SetEnvironmentVariable("API_URL", "$(API_URL)", "Machine")
+              [System.Environment]::SetEnvironmentVariable("DB_CONN", "$(DB_CONN)", "Machine")
+            displayName: 'Set PRODMAX Environment Variables'
+
+          # 🔴 STOP IIS
+          - script: |
+              echo Stopping IIS...
+              iisreset /stop
+            displayName: 'Stop IIS'
+
+          # 🧹 Clean PRODMAX folder
+          - powershell: |
+              Write-Host "Cleaning PRODMAX deployment folder..."
+              if (Test-Path "$(deployPath)") {
+                  Remove-Item "$(deployPath)\*" -Recurse -Force -ErrorAction SilentlyContinue
+              }
+            displayName: 'Clean PRODMAX Deployment Folder'
+
+          # 📁 Copy files to PRODMAX
+          - task: CopyFiles@2
+            inputs:
+              SourceFolder: '$(Pipeline.Workspace)/drop'
+              Contents: '**'
+              TargetFolder: '$(deployPath)'
+              OverWrite: true
+
+          # 🟢 START IIS
+          - script: |
+              echo Starting IIS...
+              iisreset /start
+            displayName: 'Start IIS'
