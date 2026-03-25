@@ -11,7 +11,7 @@ pool:
 
 variables:
   buildConfiguration: 'Release'
-  deployPath: 'C:\inetpub\MyMvcApp-Test'
+  deployPath: 'C:\inetpub\MyMvcApp-Test'  # Default (overridden per stage)
 
 stages:
 
@@ -20,6 +20,9 @@ stages:
   displayName: 'Deploy to Dev'
   variables:
   - group: dev-config
+  - name: deployPath
+    value: 'C:\inetpub\MyMvcApp-Dev'   # 👈 DEV folder
+
   jobs:
   - job: DeployDev
     steps:
@@ -93,6 +96,9 @@ stages:
   dependsOn: Dev
   variables:
   - group: qa-config
+  - name: deployPath
+    value: 'C:\inetpub\MyMvcApp-QA'   # 👈 QA folder
+
   jobs:
   - job: DeployQA
     steps:
@@ -105,12 +111,33 @@ stages:
         [System.Environment]::SetEnvironmentVariable("DB_CONN", "$(DB_CONN)", "Machine")
       displayName: 'Set QA Environment Variables'
 
-    # 🔴 Restart IIS (VERY IMPORTANT)
+    # 🔴 STOP IIS
     - script: |
-        echo Restarting IIS...
+        echo Stopping IIS...
         iisreset /stop
+      displayName: 'Stop IIS'
+
+    # 🧹 Clean QA folder
+    - powershell: |
+        Write-Host "Cleaning QA deployment folder..."
+        if (Test-Path "$(deployPath)") {
+            Remove-Item "$(deployPath)\*" -Recurse -Force -ErrorAction SilentlyContinue
+        }
+      displayName: 'Clean QA Deployment Folder'
+
+    # 📁 Copy files to QA
+    - task: CopyFiles@2
+      inputs:
+        SourceFolder: '$(Build.ArtifactStagingDirectory)'
+        Contents: '**'
+        TargetFolder: '$(deployPath)'
+        OverWrite: true
+
+    # 🟢 START IIS
+    - script: |
+        echo Starting IIS...
         iisreset /start
-      displayName: 'Restart IIS'
+      displayName: 'Start IIS'
 
 
 # 🔴 PROD STAGE
@@ -119,6 +146,9 @@ stages:
   dependsOn: QA
   variables:
   - group: prod-config
+  - name: deployPath
+    value: 'C:\inetpub\MyMvcApp-Prod'   # 👈 PROD folder
+
   jobs:
   - job: DeployProd
     steps:
@@ -131,9 +161,30 @@ stages:
         [System.Environment]::SetEnvironmentVariable("DB_CONN", "$(DB_CONN)", "Machine")
       displayName: 'Set PROD Environment Variables'
 
-    # 🔴 Restart IIS
+    # 🔴 STOP IIS
     - script: |
-        echo Restarting IIS...
+        echo Stopping IIS...
         iisreset /stop
+      displayName: 'Stop IIS'
+
+    # 🧹 Clean PROD folder
+    - powershell: |
+        Write-Host "Cleaning PROD deployment folder..."
+        if (Test-Path "$(deployPath)") {
+            Remove-Item "$(deployPath)\*" -Recurse -Force -ErrorAction SilentlyContinue
+        }
+      displayName: 'Clean PROD Deployment Folder'
+
+    # 📁 Copy files to PROD
+    - task: CopyFiles@2
+      inputs:
+        SourceFolder: '$(Build.ArtifactStagingDirectory)'
+        Contents: '**'
+        TargetFolder: '$(deployPath)'
+        OverWrite: true
+
+    # 🟢 START IIS
+    - script: |
+        echo Starting IIS...
         iisreset /start
-      displayName: 'Restart IIS'
+      displayName: 'Start IIS'
