@@ -100,44 +100,48 @@ stages:
     value: 'C:\inetpub\MyMvcApp-QA'   # 👈 QA folder
 
   jobs:
-  - job: DeployQA
-    steps:
+  - deployment: DeployQA   # ✅ CHANGED
+    environment: qa        # ✅ REQUIRED FOR APPROVAL
+    strategy:
+      runOnce:
+        deploy:
+          steps:
 
-    # 🌍 Set QA Environment Variables
-    - powershell: |
-        Write-Host "Setting QA environment variables..."
-        [System.Environment]::SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "QA", "Machine")
-        [System.Environment]::SetEnvironmentVariable("API_URL", "$(API_URL)", "Machine")
-        [System.Environment]::SetEnvironmentVariable("DB_CONN", "$(DB_CONN)", "Machine")
-      displayName: 'Set QA Environment Variables'
+          # 🌍 Set QA Environment Variables
+          - powershell: |
+              Write-Host "Setting QA environment variables..."
+              [System.Environment]::SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "QA", "Machine")
+              [System.Environment]::SetEnvironmentVariable("API_URL", "$(API_URL)", "Machine")
+              [System.Environment]::SetEnvironmentVariable("DB_CONN", "$(DB_CONN)", "Machine")
+            displayName: 'Set QA Environment Variables'
 
-    # 🔴 STOP IIS
-    - script: |
-        echo Stopping IIS...
-        iisreset /stop
-      displayName: 'Stop IIS'
+          # 🔴 STOP IIS
+          - script: |
+              echo Stopping IIS...
+              iisreset /stop
+            displayName: 'Stop IIS'
 
-    # 🧹 Clean QA folder
-    - powershell: |
-        Write-Host "Cleaning QA deployment folder..."
-        if (Test-Path "$(deployPath)") {
-            Remove-Item "$(deployPath)\*" -Recurse -Force -ErrorAction SilentlyContinue
-        }
-      displayName: 'Clean QA Deployment Folder'
+          # 🧹 Clean QA folder
+          - powershell: |
+              Write-Host "Cleaning QA deployment folder..."
+              if (Test-Path "$(deployPath)") {
+                  Remove-Item "$(deployPath)\*" -Recurse -Force -ErrorAction SilentlyContinue
+              }
+            displayName: 'Clean QA Deployment Folder'
 
-    # 📁 Copy files to QA
-    - task: CopyFiles@2
-      inputs:
-        SourceFolder: '$(Build.ArtifactStagingDirectory)'
-        Contents: '**'
-        TargetFolder: '$(deployPath)'
-        OverWrite: true
+          # 📁 Copy files to QA
+          - task: CopyFiles@2
+            inputs:
+              SourceFolder: '$(Build.ArtifactStagingDirectory)'
+              Contents: '**'
+              TargetFolder: '$(deployPath)'
+              OverWrite: true
 
-    # 🟢 START IIS
-    - script: |
-        echo Starting IIS...
-        iisreset /start
-      displayName: 'Start IIS'
+          # 🟢 START IIS
+          - script: |
+              echo Starting IIS...
+              iisreset /start
+            displayName: 'Start IIS'
 
 
 # 🔴 PROD STAGE
@@ -150,41 +154,45 @@ stages:
     value: 'C:\inetpub\MyMvcApp-Prod'   # 👈 PROD folder
 
   jobs:
-  - job: DeployProd
-    steps:
+  - deployment: DeployProd   # ✅ CHANGED
+    environment: prod        # ✅ REQUIRED FOR APPROVAL
+    strategy:
+      runOnce:
+        deploy:
+          steps:
 
-    # 🌍 Set PROD Environment Variables
-    - powershell: |
-        Write-Host "Setting PROD environment variables..."
-        [System.Environment]::SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Production", "Machine")
-        [System.Environment]::SetEnvironmentVariable("API_URL", "$(API_URL)", "Machine")
-        [System.Environment]::SetEnvironmentVariable("DB_CONN", "$(DB_CONN)", "Machine")
-      displayName: 'Set PROD Environment Variables'
+          # 🌍 Set PROD Environment Variables
+          - powershell: |
+              Write-Host "Setting PROD environment variables..."
+              [System.Environment]::SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Production", "Machine")
+              [System.Environment]::SetEnvironmentVariable("API_URL", "$(API_URL)", "Machine")
+              [System.Environment]::SetEnvironmentVariable("DB_CONN", "$(DB_CONN)", "Machine")
+            displayName: 'Set PROD Environment Variables'
 
-    # 🔴 STOP IIS
-    - script: |
-        echo Stopping IIS...
-        iisreset /stop
-      displayName: 'Stop IIS'
+          # 🔴 STOP IIS
+          - script: |
+              echo Stopping IIS...
+              iisreset /stop
+            displayName: 'Stop IIS'
 
-    # 🧹 Clean PROD folder
-    - powershell: |
-        Write-Host "Cleaning PROD deployment folder..."
-        if (Test-Path "$(deployPath)") {
-            Remove-Item "$(deployPath)\*" -Recurse -Force -ErrorAction SilentlyContinue
-        }
-      displayName: 'Clean PROD Deployment Folder'
+          # 🧹 Clean PROD folder
+          - powershell: |
+              Write-Host "Cleaning PROD deployment folder..."
+              if (Test-Path "$(deployPath)") {
+                  Remove-Item "$(deployPath)\*" -Recurse -Force -ErrorAction SilentlyContinue
+              }
+            displayName: 'Clean PROD Deployment Folder'
 
-    # 📁 Copy files to PROD
-    - task: CopyFiles@2
-      inputs:
-        SourceFolder: '$(Build.ArtifactStagingDirectory)'
-        Contents: '**'
-        TargetFolder: '$(deployPath)'
-        OverWrite: true
+          # 📁 Copy files to PROD
+          - task: CopyFiles@2
+            inputs:
+              SourceFolder: '$(Build.ArtifactStagingDirectory)'
+              Contents: '**'
+              TargetFolder: '$(deployPath)'
+              OverWrite: true
 
-    # 🟢 START IIS
-    - script: |
-        echo Starting IIS...
-        iisreset /start
-      displayName: 'Start IIS'
+          # 🟢 START IIS
+          - script: |
+              echo Starting IIS...
+              iisreset /start
+            displayName: 'Start IIS'
